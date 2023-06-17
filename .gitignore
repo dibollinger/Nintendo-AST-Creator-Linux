@@ -1,4 +1,5 @@
-Release/*
-Debug/*
-.gitignore/*
-.git/*
+.vscode
+.gitignore
+.git
+*.o
+ASTCreate

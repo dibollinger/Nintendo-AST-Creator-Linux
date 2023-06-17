@@ -1,16 +1,17 @@
 /**
  * Written by Gregory Heskett (gheskett)
+ * Linux compatibility by Dino Bollinger (dibollinger)
  *
  * This is a command line tool intended to convert audio into a lossless encoding of the Nintendo AST format found in games such as Super Mario Galaxy and Mario Kart: Double Dash.
  * The resulting audio file is also compatible with lossy interpretations of AST as seen in The Legend of Zelda: Twilight Princess.
  *
- * v1.3 Released 9/3/17
- *
+ * - Linux-compatible build v1.0: 6/17/23
+ * - Based on: v1.4 Released 28/1/18
  */
 
 
  /**
- * Usage: ASTCreate.exe <input file> [optional arguments]
+ * Usage: ASTCreate <input file> [optional arguments]
  *
  * OPTIONAL ARGUMENTS
  *	-o [output file]                           (default: same as input minus extension)
@@ -23,19 +24,22 @@
  *	-h                                         (shows help text)
  *
  * USAGE EXAMPLES
- *	ASTCreate.exe inputfile.wav -o outputfile.ast -s 158462 -e 7485124
- *	ASTCreate.exe "use quotations if filename contains spaces.wav" -n -f 95000000
- * 
+ *	ASTCreate inputfile.wav -o outputfile.ast -s 158462 -e 7485124
+ *	ASTCreate "use quotations if filename contains spaces.wav" -n -f 95000000
+ *
  * Note: This program will only work with WAV files (.wav) encoded with 16-bit PCM.  If the source file is anything other than a WAV file, please make a separate conversion first.  Also please ensure the input/output filenames do not contain Unicode characters.
  *
  */
 
-
-#include "stdafx.h"
-#include <string>
-#include <intrin.h>
 #include <stdio.h>
-#include <windows.h>
+#include <string>
+#include <string.h>
+#include <sys/stat.h>
+
+#define _strcmpi strcasecmp
+#define CreateDirectory mkdir
+#define _byteswap_ulong __builtin_bswap32
+#define _byteswap_ushort __builtin_bswap16
 
 using namespace std;
 
@@ -62,7 +66,7 @@ class ASTInfo {
 	unsigned int padding; // Stores a value between 0 and 32 to compensate with the final block to round it to a multiple of 32 bytes
 
 public:
-	int grabInfo(int, char**); // Retrieves header info from input WAV file, then later writes new AST file if no errors occur 
+	int grabInfo(int, char**); // Retrieves header info from input WAV file, then later writes new AST file if no errors occur
 	int getWAVData(FILE*); // Grabs and stores important WAV header info
 	int assignValue(char*, char*); // Parses through user arguments and overrides default settings
 	int writeAST(FILE*); // Entry point for writing the AST file
@@ -117,12 +121,12 @@ void defineHelp(char *arg) {
 	help = s1 + str + s2 + str + s3 + str + s4;
 }
 
-// Retrieves header info from input WAV file, then later writes new AST file if no errors occur 
+// Retrieves header info from input WAV file, then later writes new AST file if no errors occur
 int ASTInfo::grabInfo (int argc, char **argv) {
 	this->filename = argv[1];
-	
+
 	// Checks for input of more than one input file (via *)
-	if (this->filename.find("*") != -1) {
+	if (this->filename.find("*") != string::npos) {
 		printf("ERROR: Program is only capable of opening a single input file at a time.  Please enter an exact file name (avoid using '*').\n\n%s", help.c_str());
 		return 1;
 	}
@@ -145,7 +149,7 @@ int ASTInfo::grabInfo (int argc, char **argv) {
 	if (tmp.compare(".wav") != 0) {
 		if (strlen(this->filename.c_str()) >= 5)
 			tmp = this->filename.substr(this->filename.length() - 5, 5);
-		if (tmp.compare(".wave") != 0) { 
+		if (tmp.compare(".wave") != 0) {
 			if (this->filename.find(".") != string::npos)
 				printf("ERROR: Source file must be a WAV file!\n\n%s", help.c_str());
 			else
@@ -352,7 +356,7 @@ int ASTInfo::getWAVData(FILE *sourceWAV) {
 	// Sets sample rate
 	fread(&this->sampleRate, 4, 1, sourceWAV);
 	this->customSampleRate = this->sampleRate;
-	
+
 	// Checks to see if bit rate is 16 bits per sample
 	short bitrate;
 	fseek(sourceWAV, 6, SEEK_CUR);
@@ -442,7 +446,7 @@ int ASTInfo::writeAST(FILE *sourceWAV)
 	// Creates directory if needed
 	if (this->filename.find("\\") != string::npos || this->filename.find("/") != string::npos) {
 		int size = this->filename.find_last_of("/\\");
-		CreateDirectory(this->filename.substr(0, size+1).c_str(), NULL);
+		CreateDirectory(this->filename.substr(0, size+1).c_str(), 0755);
 	}
 
 	// Creates AST file
@@ -534,7 +538,6 @@ void ASTInfo::printHeader(FILE *outputAST) {
 void ASTInfo::printAudio(FILE *sourceWAV, FILE *outputAST) {
 	uint32_t length = this->blockSize; // Stores size of audio chunk in block
 	uint32_t paddedLength = _byteswap_ulong(length); // Stores current block size along with padding (Big Endian)
-	const uint16_t zeroPad = 0; // Contains the hex of 0x0000 used for padding
 	unsigned short offset = this->numChannels; // Stores an offset used in for loops to compensate with variable channels
 
 	uint16_t *block = (uint16_t*) malloc(this->blockSize * this->numChannels); // Used to read and store audio data from the original file
@@ -565,7 +568,7 @@ void ASTInfo::printAudio(FILE *sourceWAV, FILE *outputAST) {
 
 		for (unsigned int y = 0; y < this->numChannels; ++y) {
 			unsigned int z = y;
-			for (z; z < length / 2; z += offset) // Rearranges audio data in channel order to printBlock and swaps endianness
+			for (; z < length / 2; z += offset) // Rearranges audio data in channel order to printBlock and swaps endianness
 				printBlock[blockIndex++] = _byteswap_ushort(block[z]);
 
 			if (x == this->numBlocks - 1) { // Adds 32-byte padding to the end of the stream

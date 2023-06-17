@@ -1,6 +1,14 @@
+# Linux-compatible Nintendo AST Creator
+This is a fork to allow Linux users to build this command-line tool as well.
+
+Simply run `make` in the base directory, and then run the generated binary.
+
+No special dependencies required, the basic C++ libraries should suffice.
+
+# Original Readme
 This is a command line tool intended to convert audio into a lossless encoding of the Nintendo AST format found in games such as Super Mario Galaxy and Mario Kart: Double Dash.  The resulting audio file is also compatible with lossy interpretations of AST as seen in The Legend of Zelda: Twilight Princess.
 
-Usage: ASTCreate.exe <input file> [optional arguments]
+Usage: ASTCreate <input file> [optional arguments]
 
 OPTIONAL ARGUMENTS
 	-o [output file]                           (default: same as input minus extension)
@@ -13,7 +21,7 @@ OPTIONAL ARGUMENTS
 	-h                                         (shows help text)
 
 USAGE EXAMPLES
-	ASTCreate.exe inputfile.wav -o outputfile.ast -s 158462 -e 7485124
-	ASTCreate.exe "use quotations if filename contains spaces.wav" -n -f 95000000
+	ASTCreate inputfile.wav -o outputfile.ast -s 158462 -e 7485124
+	ASTCreate "use quotations if filename contains spaces.wav" -n -f 95000000
 
 Note: This program will only work with WAV files (.wav) encoded with 16-bit PCM.  If the source file is anything other than a WAV file, please make a separate conversion first.  Also please ensure the input/output filenames do not contain Unicode characters.
